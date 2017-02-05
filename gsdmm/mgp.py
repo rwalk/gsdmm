@@ -1,7 +1,5 @@
 from numpy.random import multinomial
-from numpy import log, exp, float64
-import numpy as np
-from collections import defaultdict
+from numpy import log, exp
 
 class MovieGroupProcess:
     def __init__(self, K=8, alpha=0.1, beta=0.1, n_iters=30):
@@ -34,6 +32,14 @@ class MovieGroupProcess:
         self.beta = beta
         self.n_iters = n_iters
 
+        # slots for computed variables, kind of ugly
+        self.document_labels = None
+        self.cluster_doc_count = None
+        self.cluster_word_count = None
+        self.cluster_word_distribution = None
+        self.vocab_size = None
+        self.number_docs = None
+
     @staticmethod
     def _sample(p):
         '''
@@ -45,7 +51,7 @@ class MovieGroupProcess:
         '''
         return [i for i, entry in enumerate(multinomial(1, p)) if entry != 0][0]
 
-    def fit(self, docs, V):
+    def fit(self, docs, vocab_size):
         '''
         Cluster the input documents
         :param docs: list of list
@@ -54,17 +60,26 @@ class MovieGroupProcess:
         :return: list of length len(doc)
             cluster label for each document
         '''
-        alpha, beta, K, n_iters = self.alpha, self.beta, self.K, self.n_iters
+        alpha, beta, K, n_iters, V = self.alpha, self.beta, self.K, self.n_iters, vocab_size
+
         D = len(docs)
-        d_z = [None for i in range(D)]
-        m_z = [0 for i in range(K)]
-        n_z = [0 for i in range(K)]
-        n_z_w = [{} for i in range(K)]
+
+        # fill slots
+        self.number_docs = D
+        self.document_labels = [None for _ in range(D)]
+        self.cluster_doc_count = [0 for _ in range(K)]
+        self.cluster_word_count = [0 for _ in range(K)]
+        self.cluster_word_distribution = [{} for i in range(K)]
+        self.vocab_size = vocab_size
+
+        # unpack to easy var names
+        d_z, m_z, n_z, n_z_w = self.document_labels, self.cluster_doc_count, self.cluster_word_count, self.cluster_word_distribution
+        cluster_count = K
 
         # initialize the clusters
         for i, doc in enumerate(docs):
 
-            # choose a random cluster for the doc
+            # choose a random  initial cluster for the doc
             z = self._sample([1.0 / K for _ in range(K)])
             d_z[i] = z
             m_z[z] += 1
@@ -110,8 +125,8 @@ class MovieGroupProcess:
                     p[label] = (exp(lN1 - lD1 + lN2 - lD2))
 
                 # draw sample from distribution to find new cluster
-                pnorm = sum(p)
-                z_new = self._sample([pp / pnorm for pp in p])
+                p = self.score(doc)
+                z_new = self._sample(p)
 
                 # transfer doc to the new cluster
                 if z_new != z_old:
@@ -120,10 +135,41 @@ class MovieGroupProcess:
                 d_z[i] = z_new
                 m_z[z_new] += 1
                 n_z[z_new] += len(doc)
+
                 for word in doc:
                     if word not in n_z_w[z_new]:
                         n_z_w[z_new][word] = 0
                     n_z_w[z_new][word] += 1
+
+            cluster_count_new = sum([1 for v in m_z if v > 0])
             print("In stage %d: transferred %d clusters with %d clusters populated" % (
-            _iter, total_transfers, sum([1 for v in m_z if v > 0])))
+            _iter, total_transfers, cluster_count_new))
+            if total_transfers == 0 and cluster_count_new == cluster_count and _iter>25:
+                print("Converged.  Breaking out.")
+                break
+            cluster_count = cluster_count_new
+        self.cluster_word_distribution = n_z_w
         return d_z
+
+    def score(self, doc):
+        alpha, beta, K, V, D = self.alpha, self.beta, self.K, self.vocab_size, self.number_docs
+        m_z, n_z, n_z_w = self.cluster_doc_count, self.cluster_word_count, self.cluster_word_distribution
+
+        p = [0 for _ in range(K)]
+        for label in range(K):
+            n1 = m_z[label] + alpha
+            lN1 = log(n1) if n1 > 0 else 0
+            lN2 = 0
+            lD1 = log(D - 1 + K * alpha)
+            lD2 = 0
+            for word in doc:
+                lN2 += n_z_w[label].get(word, 0) + beta
+            for j in range(len(doc)):
+                lD2 += n_z[label] + V * beta + j - 1
+            lN2 = log(lN2) if lN2 > 0 else 0
+            lD2 = log(lD2) if lD2 > 0 else 0
+            p[label] = (exp(lN1 - lD1 + lN2 - lD2))
+
+        # draw sample from distribution to find new cluster
+        pnorm = sum(p)
+        return [pp/pnorm for pp in p]
