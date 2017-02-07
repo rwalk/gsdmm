@@ -75,6 +75,5 @@ class TestGSDMM(TestCase):
         V = self.compute_V(texts)
         mgp = MovieGroupProcess(K=30, n_iters=100, alpha=0.2, beta=0.01)
         y = mgp.fit(texts, V)
-        print(mgp.cluster_word_distribution)
         self.assertTrue(len(set(y))<10)
         self.assertTrue(len(set(y))>3)

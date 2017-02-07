@@ -113,16 +113,16 @@ class MovieGroupProcess:
                 for label in range(K):
                     n1 = m_z[label] + alpha
                     lN1 = log(n1) if n1 > 0 else 0
-                    lN2 = 0
+                    lN2 = 1
                     lD1 = log(D - 1 + K * alpha)
-                    lD2 = 0
+                    lD2 = 1
                     for word in doc:
-                        lN2 += n_z_w[label].get(word, 0) + beta
-                    for j in range(len(doc)):
-                        lD2 += n_z[label] + V * beta + j - 1
-                    lN2 = log(lN2) if lN2 > 0 else 0
-                    lD2 = log(lD2) if lD2 > 0 else 0
-                    p[label] = (exp(lN1 - lD1 + lN2 - lD2))
+                        lN2 *= n_z_w[label].get(word, 0) + beta
+                    for j in range(1, 1+len(doc)):
+                        lD2 *= n_z[label] + V * beta + j - 1
+                    lN2 = log(lN2)
+                    lD2 = log(lD2)
+                    p[label] = exp(lN1 - lD1 + lN2 - lD2)
 
                 # draw sample from distribution to find new cluster
                 p = self.score(doc)
