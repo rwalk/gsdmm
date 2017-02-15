@@ -6,7 +6,8 @@ class MovieGroupProcess:
         '''
         A MovieGroupProcess is a conceptual model introduced by Yin and Wang 2014 to
         describe their Gibbs sampling algorithm for a Dirichlet Mixture Model for the
-        clustering short text documents
+        clustering short text documents.
+        Reference: http://dbgroup.cs.tsinghua.edu.cn/wangjy/papers/KDD14-GSDMM.pdf
 
         Imagine a professor is leading a film class. At the start of the class, the students
         are randomly assigned to K tables. Before class begins, the students make lists of
@@ -32,13 +33,12 @@ class MovieGroupProcess:
         self.beta = beta
         self.n_iters = n_iters
 
-        # slots for computed variables, kind of ugly
-        self.document_labels = None
-        self.cluster_doc_count = None
-        self.cluster_word_count = None
-        self.cluster_word_distribution = None
-        self.vocab_size = None
+        # slots for computed variables
         self.number_docs = None
+        self.vocab_size = None
+        self.cluster_doc_count = [0 for _ in range(K)]
+        self.cluster_word_count = [0 for _ in range(K)]
+        self.cluster_word_distribution = [{} for i in range(K)]
 
     @staticmethod
     def _sample(p):
@@ -63,18 +63,13 @@ class MovieGroupProcess:
         alpha, beta, K, n_iters, V = self.alpha, self.beta, self.K, self.n_iters, vocab_size
 
         D = len(docs)
-
-        # fill slots
         self.number_docs = D
-        self.document_labels = [None for _ in range(D)]
-        self.cluster_doc_count = [0 for _ in range(K)]
-        self.cluster_word_count = [0 for _ in range(K)]
-        self.cluster_word_distribution = [{} for i in range(K)]
         self.vocab_size = vocab_size
 
         # unpack to easy var names
-        d_z, m_z, n_z, n_z_w = self.document_labels, self.cluster_doc_count, self.cluster_word_count, self.cluster_word_distribution
+        m_z, n_z, n_z_w = self.cluster_doc_count, self.cluster_word_count, self.cluster_word_distribution
         cluster_count = K
+        d_z = [None for i in range(len(docs))]
 
         # initialize the clusters
         for i, doc in enumerate(docs):
@@ -152,24 +147,40 @@ class MovieGroupProcess:
         return d_z
 
     def score(self, doc):
+        '''
+        Score a document
+
+        Implements formula (3) of Yin and Wang 2014.
+        http://dbgroup.cs.tsinghua.edu.cn/wangjy/papers/KDD14-GSDMM.pdf
+
+        :param doc: list[str]: The doc token stream
+        :return: list[float]: A length K probability vector where each component represents
+                              the probability of the document appearing in a particular cluster
+        '''
         alpha, beta, K, V, D = self.alpha, self.beta, self.K, self.vocab_size, self.number_docs
         m_z, n_z, n_z_w = self.cluster_doc_count, self.cluster_word_count, self.cluster_word_distribution
 
         p = [0 for _ in range(K)]
+
+        #  We break the formula into the following pieces
+        #  p = N1*N2/(D1*D2) = exp(lN1 - lD1 + lN2 - lD2)
+        #  lN1 = log(m_z[z] + alpha)
+        #  lN2 = log(D - 1 + K*alpha)
+        #  lN2 = log(product(n_z_w[w] + beta)) = sum(log(n_z_w[w] + beta))
+        #  lD2 = log(product(n_z[d] + V*beta + i -1)) = sum(log(n_z[d] + V*beta + i -1))
+
+        lD1 = log(D - 1 + K * alpha)
+        doc_size = len(doc)
         for label in range(K):
-            n1 = m_z[label] + alpha
-            lN1 = log(n1) if n1 > 0 else 0
+            lN1 = log(m_z[label] + alpha)
             lN2 = 0
-            lD1 = log(D - 1 + K * alpha)
             lD2 = 0
             for word in doc:
-                lN2 += n_z_w[label].get(word, 0) + beta
-            for j in range(len(doc)):
-                lD2 += n_z[label] + V * beta + j - 1
-            lN2 = log(lN2) if lN2 > 0 else 0
-            lD2 = log(lD2) if lD2 > 0 else 0
-            p[label] = (exp(lN1 - lD1 + lN2 - lD2))
+                lN2 += log(n_z_w[label].get(word, 0) + beta)
+            for j in range(1, doc_size +1):
+                lD2 += log(n_z[label] + V * beta + j - 1)
+            p[label] = exp(lN1 - lD1 + lN2 - lD2)
 
-        # draw sample from distribution to find new cluster
+        # normalize the probability vector
         pnorm = sum(p)
         return [pp/pnorm for pp in p]
