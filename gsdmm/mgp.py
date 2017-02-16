@@ -1,5 +1,6 @@
 from numpy.random import multinomial
 from numpy import log, exp
+from numpy import argmax
 
 class MovieGroupProcess:
     def __init__(self, K=8, alpha=0.1, beta=0.1, n_iters=30):
@@ -39,6 +40,28 @@ class MovieGroupProcess:
         self.cluster_doc_count = [0 for _ in range(K)]
         self.cluster_word_count = [0 for _ in range(K)]
         self.cluster_word_distribution = [{} for i in range(K)]
+
+    @staticmethod
+    def from_data(K, alpha, beta, D, vocab_size, cluster_doc_count, cluster_word_count, cluster_word_distribution):
+        '''
+        Reconstitute a MovieGroupProcess from previously fit data
+        :param K:
+        :param alpha:
+        :param beta:
+        :param D:
+        :param vocab_size:
+        :param cluster_doc_count:
+        :param cluster_word_count:
+        :param cluster_word_distribution:
+        :return:
+        '''
+        mgp = MovieGroupProcess(K, alpha, beta, n_iters=30)
+        mgp.number_docs = D
+        mgp.vocab_size = vocab_size
+        mgp.cluster_doc_count = cluster_doc_count
+        mgp.cluster_word_count = cluster_word_count
+        mgp.cluster_word_distribution = cluster_word_distribution
+        return mgp
 
     @staticmethod
     def _sample(p):
@@ -184,3 +207,12 @@ class MovieGroupProcess:
         # normalize the probability vector
         pnorm = sum(p)
         return [pp/pnorm for pp in p]
+
+    def choose_best_label(self, doc):
+        '''
+        Choose the highest probability label for the input document
+        :param doc: list[str]: The doc token stream
+        :return:
+        '''
+        p = self.score(doc)
+        return argmax(p)

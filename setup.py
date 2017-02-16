@@ -6,7 +6,8 @@ INSTALL_REQUIRES = [
 ]
 
 setup(
-    name='rsk',
+    name='gsdmm',
+    packages=['gsdmm'],
     version=0.1,
     url='https://www.github.com/rwalk/gsdmm',
     author='Ryan Walker',
