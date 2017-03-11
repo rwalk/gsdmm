@@ -1,6 +1,7 @@
 from numpy.random import multinomial
 from numpy import log, exp
 from numpy import argmax
+import json
 
 class MovieGroupProcess:
     def __init__(self, K=8, alpha=0.1, beta=0.1, n_iters=30):
@@ -206,6 +207,7 @@ class MovieGroupProcess:
 
         # normalize the probability vector
         pnorm = sum(p)
+        pnorm = pnorm if pnorm>0 else 1
         return [pp/pnorm for pp in p]
 
     def choose_best_label(self, doc):
@@ -215,4 +217,4 @@ class MovieGroupProcess:
         :return:
         '''
         p = self.score(doc)
-        return argmax(p)
+        return argmax(p),max(p)
