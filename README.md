@@ -7,6 +7,8 @@ Some advantages of this algorithm:
  - With good parameter selection, the model converges quickly
  - Space efficient and scalable
 
+This project is an easy to read reference implementation of GSDMM -- I don't plan to maintain it unless there is demand. I am however actively maintaining the much faster Rust version of GSDMM [here](https://github.com/rwalk/gsdmm-rust).
+
 ## The Movie Group Process
 In their paper, the authors introduce a simple conceptual model for explaining the GSDMM called the Movie Group Process.
 
