@@ -1,4 +1,4 @@
-#GSDMM: Short text clustering
+# GSDMM: Short text clustering
 
 This project implements the Gibbs sampling algorithm for a Dirichlet Mixture Model of [Yin and Wang 2014](https://pdfs.semanticscholar.org/058a/d0815ce350f0e7538e00868c762be78fe5ef.pdf) for the 
 clustering of short text documents. 
