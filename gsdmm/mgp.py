@@ -127,22 +127,6 @@ class MovieGroupProcess:
                     if n_z_w[z_old][word] == 0:
                         del n_z_w[z_old][word]
 
-                # compute the probability for reassignment
-                p = [0 for _ in range(K)]
-                for label in range(K):
-                    n1 = m_z[label] + alpha
-                    lN1 = log(n1) if n1 > 0 else 0
-                    lN2 = 1
-                    lD1 = log(D - 1 + K * alpha)
-                    lD2 = 1
-                    for word in doc:
-                        lN2 *= n_z_w[label].get(word, 0) + beta
-                    for j in range(1, 1+len(doc)):
-                        lD2 *= n_z[label] + V * beta + j - 1
-                    lN2 = log(lN2)
-                    lD2 = log(lD2)
-                    p[label] = exp(lN1 - lD1 + lN2 - lD2)
-
                 # draw sample from distribution to find new cluster
                 p = self.score(doc)
                 z_new = self._sample(p)
