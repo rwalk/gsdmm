@@ -2,6 +2,16 @@ from unittest import TestCase
 from gsdmm.mgp import MovieGroupProcess
 import numpy
 
+
+def tokenize(docs):
+    words = set()
+    for doc in docs:
+        for word in doc:
+            words.add(word)
+    tokens = {word: i for i, word in enumerate(words)}
+    return [[tokens[word] for word in doc] for doc in docs]
+
+
 class TestGSDMM(TestCase):
     '''This class tests the Panel data structures needed to support the RSK model'''
 
@@ -45,13 +55,15 @@ class TestGSDMM(TestCase):
             "P",
             "W"
         ]))
-
-        grades = grades + grades + grades + grades + grades
-        mgp = MovieGroupProcess(K=100, n_iters=100, alpha=0.001, beta=0.01)
-        y = mgp.fit(grades, self.compute_V(grades))
+        grades = [g for _ in range(5) for g in grades]
+        mgp = MovieGroupProcess(K=100, n_iters=100, alpha=1e2, beta=1e-6)
+        y = mgp.fit(tokenize(grades), self.compute_V(grades))
         self.assertEqual(len(set(y)), 7)
-        for words in mgp.cluster_word_distribution:
-            self.assertTrue(len(words) in {0,1}, "More than one grade ended up in a cluster!")
+        distribution = mgp.cluster_word_distribution
+        for label in range(distribution.shape[0]):
+            tmp = distribution[label, :]
+            self.assertTrue(numpy.all(tmp == 0) or numpy.sum(tmp != 0) == 1,
+                            f"More than one grade ended up in a cluster!")
 
     def test_short_text(self):
         # there is no perfect segmentation of this text data:
@@ -74,6 +86,6 @@ class TestGSDMM(TestCase):
         texts = [text.split() for text in texts]
         V = self.compute_V(texts)
         mgp = MovieGroupProcess(K=30, n_iters=100, alpha=0.2, beta=0.01)
-        y = mgp.fit(texts, V)
+        y = mgp.fit(tokenize(texts), V)
         self.assertTrue(len(set(y))<10)
         self.assertTrue(len(set(y))>3)
