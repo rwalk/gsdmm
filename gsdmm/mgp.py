@@ -1,7 +1,6 @@
 from numpy.random import multinomial
 from numpy import log, exp
 from numpy import argmax
-import numpy as np
 import json
 
 class MovieGroupProcess:
@@ -39,9 +38,9 @@ class MovieGroupProcess:
         # slots for computed variables
         self.number_docs = None
         self.vocab_size = None
-        self.cluster_doc_count = np.zeros(shape=(K,), dtype=int)
-        self.cluster_word_count = np.zeros(shape=(K,), dtype=int)
-        self.cluster_word_distribution = None
+        self.cluster_doc_count = [0 for _ in range(K)]
+        self.cluster_word_count = [0 for _ in range(K)]
+        self.cluster_word_distribution = [{} for i in range(K)]
 
     @staticmethod
     def from_data(K, alpha, beta, D, vocab_size, cluster_doc_count, cluster_word_count, cluster_word_distribution):
@@ -76,7 +75,7 @@ class MovieGroupProcess:
         '''
         return [i for i, entry in enumerate(multinomial(1, p)) if entry != 0][0]
 
-    def fit(self, docs, vocab_size, callback=None):
+    def fit(self, docs, vocab_size):
         '''
         Cluster the input documents
         :param docs: list of list
@@ -91,8 +90,6 @@ class MovieGroupProcess:
         self.number_docs = D
         self.vocab_size = vocab_size
 
-        self.cluster_word_distribution = np.zeros(shape=(K, vocab_size), dtype='float64')
-
         # unpack to easy var names
         m_z, n_z, n_z_w = self.cluster_doc_count, self.cluster_word_count, self.cluster_word_distribution
         cluster_count = K
@@ -102,12 +99,14 @@ class MovieGroupProcess:
         for i, doc in enumerate(docs):
 
             # choose a random  initial cluster for the doc
-            z = np.random.randint(0, K)
+            z = self._sample([1.0 / K for _ in range(K)])
             d_z[i] = z
             m_z[z] += 1
             n_z[z] += len(doc)
 
             for word in doc:
+                if word not in n_z_w[z]:
+                    n_z_w[z][word] = 0
                 n_z_w[z][word] += 1
 
         for _iter in range(n_iters):
@@ -124,6 +123,10 @@ class MovieGroupProcess:
                 for word in doc:
                     n_z_w[z_old][word] -= 1
 
+                    # compact dictionary to save space
+                    if n_z_w[z_old][word] == 0:
+                        del n_z_w[z_old][word]
+
                 # draw sample from distribution to find new cluster
                 p = self.score(doc)
                 z_new = self._sample(p)
@@ -137,12 +140,11 @@ class MovieGroupProcess:
                 n_z[z_new] += len(doc)
 
                 for word in doc:
+                    if word not in n_z_w[z_new]:
+                        n_z_w[z_new][word] = 0
                     n_z_w[z_new][word] += 1
 
-            if callback is not None:
-                callback()
-
-            cluster_count_new = np.sum(m_z > 0)
+            cluster_count_new = sum([1 for v in m_z if v > 0])
             print("In stage %d: transferred %d clusters with %d clusters populated" % (
             _iter, total_transfers, cluster_count_new))
             if total_transfers == 0 and cluster_count_new == cluster_count and _iter>25:
@@ -166,28 +168,31 @@ class MovieGroupProcess:
         alpha, beta, K, V, D = self.alpha, self.beta, self.K, self.vocab_size, self.number_docs
         m_z, n_z, n_z_w = self.cluster_doc_count, self.cluster_word_count, self.cluster_word_distribution
 
+        p = [0 for _ in range(K)]
+
+        #  We break the formula into the following pieces
+        #  p = N1*N2/(D1*D2) = exp(lN1 - lD1 + lN2 - lD2)
+        #  lN1 = log(m_z[z] + alpha)
+        #  lN2 = log(D - 1 + K*alpha)
+        #  lN2 = log(product(n_z_w[w] + beta)) = sum(log(n_z_w[w] + beta))
+        #  lD2 = log(product(n_z[d] + V*beta + i -1)) = sum(log(n_z[d] + V*beta + i -1))
+
         lD1 = log(D - 1 + K * alpha)
-
-        lN1 = log(m_z + alpha)
-
         doc_size = len(doc)
-
-        lD2 = np.zeros(shape=(doc_size, K))
-        for i in range(doc_size):
-            lD2[i, :] = i
-        lD2 = np.squeeze(lD2)
-        lD2 = log(lD2 + n_z + (V * beta))
-
-        lN2 = np.zeros(shape=(K,))
-        tmp = n_z_w[:, doc]
         for label in range(K):
-            lN2[label] = np.sum(log(tmp[label] + beta))
+            lN1 = log(m_z[label] + alpha)
+            lN2 = 0
+            lD2 = 0
+            for word in doc:
+                lN2 += log(n_z_w[label].get(word, 0) + beta)
+            for j in range(1, doc_size +1):
+                lD2 += log(n_z[label] + V * beta + j - 1)
+            p[label] = exp(lN1 - lD1 + lN2 - lD2)
 
-        p = lN1 - lD1 + lN2 - np.sum(lD2, axis=0)
-        p -= np.max(p)
-        p = exp(p)
-        p /= np.sum(p)
-        return p
+        # normalize the probability vector
+        pnorm = sum(p)
+        pnorm = pnorm if pnorm>0 else 1
+        return [pp/pnorm for pp in p]
 
     def choose_best_label(self, doc):
         '''
