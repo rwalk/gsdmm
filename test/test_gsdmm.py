@@ -52,6 +52,29 @@ class TestGSDMM(TestCase):
         self.assertEqual(len(set(y)), 7)
         for words in mgp.cluster_word_distribution:
             self.assertTrue(len(words) in {0,1}, "More than one grade ended up in a cluster!")
+            
+    def test_simple_example(self):
+        # example from @spattanayak1
+
+        docs=[['house',
+        'burning',
+        'need',
+        'fire',
+        'truck',
+        'ml',
+        'hindu',
+        'response',
+        'christian',
+        'conversion',
+        'alm']]
+
+        mgp = MovieGroupProcess(K=10, alpha=0.1, beta=0.1, n_iters=30)
+
+        vocab = set(x for doc in docs for x in doc)
+        n_terms = len(vocab)
+        n_docs = len(docs)
+
+        y = mgp.fit(docs, n_terms)
 
     def test_short_text(self):
         # there is no perfect segmentation of this text data:
