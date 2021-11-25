@@ -1,4 +1,6 @@
 # GSDMM: Short text clustering
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Frwalk%2Fgsdmm.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Frwalk%2Fgsdmm?ref=badge_shield)
+
 
 This project implements the Gibbs sampling algorithm for a Dirichlet Mixture Model of [Yin and Wang 2014](https://pdfs.semanticscholar.org/058a/d0815ce350f0e7538e00868c762be78fe5ef.pdf) for the 
 clustering of short text documents. 
@@ -37,3 +39,7 @@ y = mgp.fit(docs)
 ```
 Each doc in `docs` must be a unique list of tokens found in your short text document. This implementation does not support
 counting tokens with multiplicity (which generally has little value in short text documents).
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Frwalk%2Fgsdmm.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Frwalk%2Fgsdmm?ref=badge_large)
