@@ -1,7 +1,7 @@
 from numpy.random import multinomial
 from numpy import log, exp
 from numpy import argmax
-import json
+import pickle
 
 class MovieGroupProcess:
     def __init__(self, K=8, alpha=0.1, beta=0.1, n_iters=30):
@@ -42,8 +42,43 @@ class MovieGroupProcess:
         self.cluster_word_count = [0 for _ in range(K)]
         self.cluster_word_distribution = [{} for i in range(K)]
 
-    @staticmethod
-    def from_data(K, alpha, beta, D, vocab_size, cluster_doc_count, cluster_word_count, cluster_word_distribution):
+    def save(self, f):
+        '''
+        Dump MovieGroupProcess to Pickle file.
+        :param f: str
+            Target File Path
+        :return:
+        '''
+        payload = {"K": self.K, "alpha":self.alpha, 'beta': self.beta, "D": self.number_docs, 'cluster_doc_count': self.cluster_doc_count,
+                   "cluster_word_count": self.cluster_word_count,
+                   "cluster_word_distribution": self.cluster_word_distribution,
+                   "n_iters": self.n_iters}
+        try:
+            fstream = open(f, mode='wb')
+        except IOError as error:
+            raise IOError("Cannot create file, check path. ", error)
+        else:
+            pickle.dump(payload, fstream)
+            fstream.close()
+
+    def load(self, f):
+        '''
+        Load Pickled MovieGroupProcess.
+        :param f: str
+            Target File Path
+        :return self:
+        '''
+        try:
+            fstream = open(f, mode='rb')
+        except IOError as error:
+            raise IOError(error)
+        else:
+            payload = pickle.load(file=fstream)
+            fstream.close()
+            return self._from_data(**payload)
+
+    def _from_data(self, K, alpha, beta, D, vocab_size, cluster_doc_count,
+                   cluster_word_count, cluster_word_distribution, n_iters):
         '''
         Reconstitute a MovieGroupProcess from previously fit data
         :param K:
@@ -56,13 +91,16 @@ class MovieGroupProcess:
         :param cluster_word_distribution:
         :return:
         '''
-        mgp = MovieGroupProcess(K, alpha, beta, n_iters=30)
-        mgp.number_docs = D
-        mgp.vocab_size = vocab_size
-        mgp.cluster_doc_count = cluster_doc_count
-        mgp.cluster_word_count = cluster_word_count
-        mgp.cluster_word_distribution = cluster_word_distribution
-        return mgp
+        self.n_iters = n_iters
+        self.K = K
+        self.alpha = alpha
+        self.beta = beta
+        self.number_docs = D
+        self.vocab_size = vocab_size
+        self.cluster_doc_count = cluster_doc_count
+        self.cluster_word_count = cluster_word_count
+        self.cluster_word_distribution = cluster_word_distribution
+        return self
 
     @staticmethod
     def _sample(p):
@@ -185,7 +223,7 @@ class MovieGroupProcess:
             lD2 = 0
             for word in doc:
                 lN2 += log(n_z_w[label].get(word, 0) + beta)
-            for j in range(1, doc_size +1):
+            for j in range(1, doc_size + 1):
                 lD2 += log(n_z[label] + V * beta + j - 1)
             p[label] = exp(lN1 - lD1 + lN2 - lD2)
 
@@ -201,4 +239,4 @@ class MovieGroupProcess:
         :return:
         '''
         p = self.score(doc)
-        return argmax(p),max(p)
+        return argmax(p), max(p)
