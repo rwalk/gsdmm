@@ -7,6 +7,7 @@ TopicWords = Dict[Any, str]
 
 
 class MovieGroupProcess:
+    # pylint: disable=invalid-name
     def __init__(self, K=8, alpha=0.1, beta=0.1, n_iters=30):
         """
         A MovieGroupProcess is a conceptual model introduced by Yin and Wang 2014 to
@@ -33,7 +34,7 @@ class MovieGroupProcess:
             concerned with affinity and are more influenced by the popularity of a table
         :param n_iters:
         """
-        self.K = K
+        self.K = K  # pylint: disable=invalid-name
         self.alpha = alpha
         self.beta = beta
         self.n_iters = n_iters
@@ -45,6 +46,7 @@ class MovieGroupProcess:
         self.cluster_word_count = [0 for _ in range(K)]
         self.cluster_word_distribution = [{} for i in range(K)]
 
+    # pylint: disable=invalid-name
     @staticmethod
     def from_data(
         K,
@@ -96,7 +98,8 @@ class MovieGroupProcess:
         :return: list of length len(doc)
             cluster label for each document
         """
-        alpha, beta, K, n_iters, V = (
+        # pylint: disable=invalid-name
+        _, __, K, n_iters, ___ = (
             self.alpha,
             self.beta,
             self.K,
@@ -193,6 +196,7 @@ class MovieGroupProcess:
         :return: list[float]: A length K probability vector where each component represents
                               the probability of the document appearing in a particular cluster
         """
+        # pylint: disable=invalid-name
         alpha, beta, K, V, D = (
             self.alpha,
             self.beta,
