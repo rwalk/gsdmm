@@ -1,7 +1,11 @@
+from typing import Any, Dict, Type, TypeVar
 from numpy.random import multinomial
-from numpy import log, exp
-from numpy import argmax
+from numpy import argmax, log, exp, array as np_array
 import json
+
+
+TopicWords = Dict[Any, str]
+
 
 class MovieGroupProcess:
     def __init__(self, K=8, alpha=0.1, beta=0.1, n_iters=30):
@@ -202,3 +206,16 @@ class MovieGroupProcess:
         '''
         p = self.score(doc)
         return argmax(p),max(p)
+
+    def get_top_words(self, k_words: int = 5, merge_token: str = " ") -> TopicWords:
+        doc_count = np_array(self.cluster_doc_count)
+        top_index = doc_count.argsort()[-self.K:][::-1]
+        topic_words: TopicWords = {}
+
+        for cluster in top_index:
+            items = self.cluster_word_distribution[cluster].items()
+            sort_dicts = sorted(items, key=lambda k: k[1], reverse=True)[:k_words]
+            words = merge_token.join([wc[0] for wc in sort_dicts])
+            topic_words[int(cluster)] = words
+
+        return topic_words
