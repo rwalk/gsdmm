@@ -1,7 +1,6 @@
-from typing import Any, Dict, Type, TypeVar
+from typing import Any, Dict
 from numpy.random import multinomial
 from numpy import argmax, log, exp, array as np_array
-import json
 
 
 TopicWords = Dict[Any, str]
@@ -9,7 +8,7 @@ TopicWords = Dict[Any, str]
 
 class MovieGroupProcess:
     def __init__(self, K=8, alpha=0.1, beta=0.1, n_iters=30):
-        '''
+        """
         A MovieGroupProcess is a conceptual model introduced by Yin and Wang 2014 to
         describe their Gibbs sampling algorithm for a Dirichlet Mixture Model for the
         clustering short text documents.
@@ -33,7 +32,7 @@ class MovieGroupProcess:
             that students desire to sit with students of similar interests. A high beta means they are less
             concerned with affinity and are more influenced by the popularity of a table
         :param n_iters:
-        '''
+        """
         self.K = K
         self.alpha = alpha
         self.beta = beta
@@ -47,8 +46,17 @@ class MovieGroupProcess:
         self.cluster_word_distribution = [{} for i in range(K)]
 
     @staticmethod
-    def from_data(K, alpha, beta, D, vocab_size, cluster_doc_count, cluster_word_count, cluster_word_distribution):
-        '''
+    def from_data(
+        K,
+        alpha,
+        beta,
+        D,
+        vocab_size,
+        cluster_doc_count,
+        cluster_word_count,
+        cluster_word_distribution,
+    ):
+        """
         Reconstitute a MovieGroupProcess from previously fit data
         :param K:
         :param alpha:
@@ -59,7 +67,7 @@ class MovieGroupProcess:
         :param cluster_word_count:
         :param cluster_word_distribution:
         :return:
-        '''
+        """
         mgp = MovieGroupProcess(K, alpha, beta, n_iters=30)
         mgp.number_docs = D
         mgp.vocab_size = vocab_size
@@ -70,32 +78,42 @@ class MovieGroupProcess:
 
     @staticmethod
     def _sample(p):
-        '''
+        """
         Sample with probability vector p from a multinomial distribution
         :param p: list
             List of probabilities representing probability vector for the multinomial distribution
         :return: int
             index of randomly selected output
-        '''
+        """
         return [i for i, entry in enumerate(multinomial(1, p)) if entry != 0][0]
 
     def fit(self, docs, vocab_size):
-        '''
+        """
         Cluster the input documents
         :param docs: list of list
             list of lists containing the unique token set of each document
         :param V: total vocabulary size for each document
         :return: list of length len(doc)
             cluster label for each document
-        '''
-        alpha, beta, K, n_iters, V = self.alpha, self.beta, self.K, self.n_iters, vocab_size
+        """
+        alpha, beta, K, n_iters, V = (
+            self.alpha,
+            self.beta,
+            self.K,
+            self.n_iters,
+            vocab_size,
+        )
 
         D = len(docs)
         self.number_docs = D
         self.vocab_size = vocab_size
 
         # unpack to easy var names
-        m_z, n_z, n_z_w = self.cluster_doc_count, self.cluster_word_count, self.cluster_word_distribution
+        m_z, n_z, n_z_w = (
+            self.cluster_doc_count,
+            self.cluster_word_count,
+            self.cluster_word_distribution,
+        )
         cluster_count = K
         d_z = [None for i in range(len(docs))]
 
@@ -149,9 +167,15 @@ class MovieGroupProcess:
                     n_z_w[z_new][word] += 1
 
             cluster_count_new = sum([1 for v in m_z if v > 0])
-            print("In stage %d: transferred %d clusters with %d clusters populated" % (
-            _iter, total_transfers, cluster_count_new))
-            if total_transfers == 0 and cluster_count_new == cluster_count and _iter>25:
+            print(
+                "In stage %d: transferred %d clusters with %d clusters populated"
+                % (_iter, total_transfers, cluster_count_new)
+            )
+            if (
+                total_transfers == 0
+                and cluster_count_new == cluster_count
+                and _iter > 25
+            ):
                 print("Converged.  Breaking out.")
                 break
             cluster_count = cluster_count_new
@@ -159,7 +183,7 @@ class MovieGroupProcess:
         return d_z
 
     def score(self, doc):
-        '''
+        """
         Score a document
 
         Implements formula (3) of Yin and Wang 2014.
@@ -168,9 +192,19 @@ class MovieGroupProcess:
         :param doc: list[str]: The doc token stream
         :return: list[float]: A length K probability vector where each component represents
                               the probability of the document appearing in a particular cluster
-        '''
-        alpha, beta, K, V, D = self.alpha, self.beta, self.K, self.vocab_size, self.number_docs
-        m_z, n_z, n_z_w = self.cluster_doc_count, self.cluster_word_count, self.cluster_word_distribution
+        """
+        alpha, beta, K, V, D = (
+            self.alpha,
+            self.beta,
+            self.K,
+            self.vocab_size,
+            self.number_docs,
+        )
+        m_z, n_z, n_z_w = (
+            self.cluster_doc_count,
+            self.cluster_word_count,
+            self.cluster_word_distribution,
+        )
 
         p = [0 for _ in range(K)]
 
@@ -189,27 +223,27 @@ class MovieGroupProcess:
             lD2 = 0
             for word in doc:
                 lN2 += log(n_z_w[label].get(word, 0) + beta)
-            for j in range(1, doc_size +1):
+            for j in range(1, doc_size + 1):
                 lD2 += log(n_z[label] + V * beta + j - 1)
             p[label] = exp(lN1 - lD1 + lN2 - lD2)
 
         # normalize the probability vector
         pnorm = sum(p)
-        pnorm = pnorm if pnorm>0 else 1
-        return [pp/pnorm for pp in p]
+        pnorm = pnorm if pnorm > 0 else 1
+        return [pp / pnorm for pp in p]
 
     def choose_best_label(self, doc):
-        '''
+        """
         Choose the highest probability label for the input document
         :param doc: list[str]: The doc token stream
         :return:
-        '''
+        """
         p = self.score(doc)
-        return argmax(p),max(p)
+        return argmax(p), max(p)
 
     def get_top_words(self, k_words: int = 5, merge_token: str = " ") -> TopicWords:
         doc_count = np_array(self.cluster_doc_count)
-        top_index = doc_count.argsort()[-self.K:][::-1]
+        top_index = doc_count.argsort()[-self.K :][::-1]
         topic_words: TopicWords = {}
 
         for cluster in top_index:
